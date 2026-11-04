@@ -1,0 +1,204 @@
+/* Scoped, reversible overrides: no DOM replacement and no event handlers. */
+html[data-govmap-dark="true"],
+html[data-govmap-dark="true"] .theme-wrapper,
+html[data-govmap-dark="true"] .light-theme,
+html[data-govmap-dark="true"] .dark-theme {
+  color-scheme: dark;
+  --bg-primary: #151c27 !important;
+  --bg-secondary: #202b3a !important;
+  --bg-tertiary: #2c394c !important;
+  --text-primary: #edf3fc !important;
+  --text-secondary: #c7d2e3 !important;
+  --text-tertiary: #aebed5 !important;
+  --text-disabled: #7c8b9e !important;
+  --accent-color: #79b2ff !important;
+  --surface-color: #253247 !important;
+  --surface-color-2: #1c2738 !important;
+  --surface-color-3: #111824 !important;
+  --btn-enable-bg: #1c2738 !important;
+  --btn-enable-border: #35465f !important;
+  --btn-hover-bg: #2c3c53 !important;
+  --btn-hover-border: #7197c7 !important;
+  --btn-hover-shadow: 0 2px 5px #0005 !important;
+  --btn-active-bg: #314969 !important;
+  --btn-active-border: #8fbcf5 !important;
+  --btn-disabled-bg: #1c2738 !important;
+  --btn-disabled-border: #29384b !important;
+  --shadow-soft-ltr: 0 1px 5px #0006 !important;
+  --shadow-soft-rtl: 0 1px 5px #0006 !important;
+  --shadow-primary: 0 2px 8px #0008 !important;
+  --slider-rail: #475b75 !important;
+  --slider-thumb-bg: #edf3fc !important;
+  --slider-mark: #94a8c3 !important;
+  --slider-mark-label: #c7d2e3 !important;
+  --slider-value-label: #edf3fc !important;
+  --slider-badge-bg: #314969 !important;
+  --slider-badge-text: #b5d4ff !important;
+  --light-toggle-bg-active: #314969 !important;
+  --light-toggle-color: #aebed5 !important;
+  scrollbar-color: #5c7190 #151c27;
+}
+html[data-govmap-dark="true"], html[data-govmap-dark="true"] body {
+  background: #151c27 !important; color: #edf3fc !important;
+}
+html[data-govmap-dark="true"] input,
+html[data-govmap-dark="true"] textarea,
+html[data-govmap-dark="true"] select {
+  color: #edf3fc !important; caret-color: #a7ceff;
+}
+html[data-govmap-dark="true"] input::placeholder,
+html[data-govmap-dark="true"] textarea::placeholder { color: #aebed5 !important; opacity: 1; }
+/* Native map canvas only; legends, layer icons, photographs and print canvas keep their colors. */
+html[data-govmap-dark="true"] .ol-layer canvas {
+  filter: invert(0.92) hue-rotate(180deg) saturate(1.25) brightness(1.70) contrast(0.88) !important;
+}
+/* Older panels with literal white backgrounds rather than site theme tokens. */
+html[data-govmap-dark="true"] [class*="_panelContainer_"],
+html[data-govmap-dark="true"] [class*="_header_"] {
+  background-color: #151c27 !important; color: #edf3fc !important;
+}
+html[data-govmap-dark="true"] [class*="_headerTitle_"],
+html[data-govmap-dark="true"] [class*="_headerIcon_"],
+html[data-govmap-dark="true"] [class*="_itemTitle_"] { color: #edf3fc !important; }
+html[data-govmap-dark="true"] :focus-visible { outline: 2px solid #9cc9ff; outline-offset: 2px; }
+@media print { html[data-govmap-dark="true"] .ol-layer canvas { filter: none !important; } }
+/* Search and Ant/MUI widgets have literal light colors outside theme variables. */
+html[data-govmap-dark="true"] #searchBar { color: #c7d2e3 !important; }
+html[data-govmap-dark="true"] #searchBar [class*="_search_"],
+html[data-govmap-dark="true"] .general-search-results-container .MuiPopper-root {
+  background: #202b3a !important; color: #edf3fc !important;
+}
+html[data-govmap-dark="true"] .general-search-results-container,
+html[data-govmap-dark="true"] .general-search-results-container [class*="_chip_"],
+html[data-govmap-dark="true"] .general-search-results-container [class*="_mainTitle_"],
+html[data-govmap-dark="true"] .general-search-results-container [class*="_description_"] {
+  color: #edf3fc !important;
+}
+html[data-govmap-dark="true"] .general-search-results-container [class*="_selected_"],
+html[data-govmap-dark="true"] .general-search-results-container [class*="_first_"],
+html[data-govmap-dark="true"] .general-search-results-container [class*="_item_"]:hover {
+  background: #314969 !important;
+}
+html[data-govmap-dark="true"] .ant-tree {
+  background: transparent !important; color: #edf3fc !important;
+}
+html[data-govmap-dark="true"] .ant-tree-title,
+html[data-govmap-dark="true"] .ant-tree-node-content-wrapper,
+html[data-govmap-dark="true"] .ant-tree-title button,
+html[data-govmap-dark="true"] .ant-tree-switcher { color: #edf3fc !important; }
+html[data-govmap-dark="true"] .ant-tree-node-content-wrapper:hover,
+html[data-govmap-dark="true"] .ant-tree-node-content-wrapper.ant-tree-node-selected {
+  background: #314969 !important;
+}
+html[data-govmap-dark="true"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html[data-govmap-dark="true"] textarea,
+html[data-govmap-dark="true"] select { background-color: #202b3a !important; }
+
+/* Keep floating map controls distinct from the map, including mobile controls. */
+html[data-govmap-dark="true"] .squareIconButton,
+html[data-govmap-dark="true"] [data-test-id^="map-"][role="button"] {
+  background-color: #24364b !important;
+  color: #edf3fc !important;
+  border-color: #7693b5 !important;
+  box-shadow: 0 2px 8px #0008 !important;
+}
+html[data-govmap-dark="true"] .squareIconButton svg {
+  filter: brightness(0) invert(1);
+}
+/* Pure-black OLED surfaces; maintain readable outlines and labels. */
+html[data-govmap-oled="true"],
+html[data-govmap-oled="true"] .theme-wrapper,
+html[data-govmap-oled="true"] .light-theme,
+html[data-govmap-oled="true"] .dark-theme {
+  --bg-primary: #000 !important; --bg-secondary: #000 !important;
+  --bg-tertiary: #101820 !important; --surface-color: #000 !important;
+  --surface-color-2: #000 !important; --surface-color-3: #000 !important;
+  --btn-enable-bg: #000 !important; --btn-hover-bg: #152030 !important;
+  --btn-active-bg: #1c2d43 !important; --btn-disabled-bg: #000 !important;
+}
+html[data-govmap-oled="true"], html[data-govmap-oled="true"] body,
+html[data-govmap-oled="true"] [class*="_panelContainer_"],
+html[data-govmap-oled="true"] [class*="_header_"],
+html[data-govmap-oled="true"] #searchBar [class*="_search_"],
+html[data-govmap-oled="true"] .general-search-results-container .MuiPopper-root,
+html[data-govmap-oled="true"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html[data-govmap-oled="true"] textarea, html[data-govmap-oled="true"] select,
+html[data-govmap-oled="true"] .squareIconButton,
+html[data-govmap-oled="true"] [data-test-id^="map-"][role="button"] {
+  background-color: #000 !important;
+}
+html[data-govmap-oled="true"] .ol-layer canvas {
+  filter: invert(0.92) hue-rotate(180deg) saturate(1.25) brightness(1.70) contrast(0.88) url("#govmap-oled-map") !important;
+}
+/* The live mobile site prevents generic SVG filters on its location control.
+   Override that rule specifically, preserving loading/active artwork and handlers. */
+html[data-govmap-dark="true"] .self-location-button,
+html[data-govmap-dark="true"] [class*="_selfLocationBtnWrapper_"],
+html[data-govmap-dark="true"] [class*="_mobileMapMyLocationBtn_"] {
+  background-color: #24364b !important; color: #edf3fc !important;
+  border-color: #7693b5 !important;
+}
+html[data-govmap-dark="true"] .self-location-button svg,
+html[data-govmap-dark="true"] [class*="_selfLocationBtnWrapper_"] svg,
+html[data-govmap-dark="true"] [class*="_mobileMapMyLocationBtn_"] svg {
+  filter: brightness(0) invert(1) !important;
+}
+html[data-govmap-oled="true"] .self-location-button,
+html[data-govmap-oled="true"] [class*="_selfLocationBtnWrapper_"],
+html[data-govmap-oled="true"] [class*="_mobileMapMyLocationBtn_"] {
+  background-color: #000 !important;
+}
+@media print { html[data-govmap-oled="true"] .ol-layer canvas { filter: none !important; } }
+/* Satellite/aerial and other alternate basemaps retain original colors in both night modes. */
+html[data-govmap-dark="true"][data-govmap-original-map="true"] .ol-layer canvas { filter: none !important; }
+/* Text tags, menus and cards that use hard-coded light surfaces. */
+html[data-govmap-dark="true"] :is(.MuiPaper-root,.MuiChip-root,.MuiMenu-paper,.ant-tag,.ant-dropdown-menu,.ant-select-dropdown,.ant-tooltip-inner,[class*="_tag_"],[class*="_badge_"],[class*="_chip_"],[class*="_menuItem_"],[class*="_decorativeMenu_"],[class*="_accordionHeader_"],[class*="_govmapListItem_"],[class*="_videoCard_"]) {
+  background-color: var(--bg-primary, #151c27) !important;
+  color: #edf3fc !important; border-color: #526b8b !important;
+}
+html[data-govmap-dark="true"] :is(.MuiChip-label,.MuiMenuItem-root,.ant-tag,[class*="_label_"],[class*="_tagLabel_"],[class*="_menuItem_"] span) { color: #edf3fc !important; }
+html[data-govmap-dark="true"] :is(.MuiMenuItem-root,.ant-dropdown-menu-item):hover {
+  background-color: #253c58 !important;
+}
+
+/* Verified live-site gaps: panel titles, layer metadata, sharing and tool cards
+   use literal dark text instead of theme tokens. Scope corrections to UI panels. */
+html[data-govmap-dark="true"] .theme-wrapper,
+html[data-govmap-dark="true"] .panel,
+html[data-govmap-dark="true"] .panelContent,
+html[data-govmap-dark="true"] .MuiDialog-root {
+  color: #edf3fc !important;
+}
+html[data-govmap-dark="true"] :is(.panel,.MuiDialog-root) :is(.headerTitle,[data-test-id="panel-header-title"],[class*="_title_"],[class*="_mainText_"],[class*="_instructions_"],[class*="_aboutLayerDesktopValue_"],[class*="_aboutLayerMobileValue_"]) {
+  color: #edf3fc !important;
+}
+html[data-govmap-dark="true"] :is(.panel,.MuiDialog-root) :is([class*="_subTitle_"],[class*="_subText_"],[class*="_aboutLayerDesktopField_"],[class*="_aboutLayerMobileField_"]) {
+  color: #c7d2e3 !important;
+}
+html[data-govmap-dark="true"] .MuiIconButton-root {
+  color: #edf3fc !important;
+}
+html[data-govmap-dark="true"] .MuiIconButton-root.Mui-disabled {
+  color: #7c8b9e !important;
+}
+html[data-govmap-dark="true"] .panel [class*="_cardContainer_"] {
+  background-color: var(--bg-secondary) !important; color: #edf3fc !important;
+  border-color: #526b8b !important;
+}
+html[data-govmap-dark="true"] .panel [class*="_cardContainer_"][aria-pressed="true"] {
+  background-color: var(--btn-active-bg) !important; border-color: #8fbcf5 !important;
+}
+html[data-govmap-dark="true"] .panel [class*="_cardContainer_"]:hover {
+  background-color: var(--btn-hover-bg) !important;
+}
+/* Dropdowns and form labels in MUI dialogs do not inherit the page text color. */
+html[data-govmap-dark="true"] :is(.MuiFormLabel-root,.MuiInputLabel-root,.MuiSelect-select,.MuiTableCell-root,.MuiDialog-root .MuiTypography-root) {
+  color: #edf3fc !important;
+}
+html[data-govmap-dark="true"] .MuiOutlinedInput-notchedOutline {
+  border-color: #7693b5 !important;
+}
+html[data-govmap-dark="true"] .ant-select-selector {
+  background-color: var(--bg-secondary) !important; color: #edf3fc !important;
+  border-color: #7693b5 !important;
+}

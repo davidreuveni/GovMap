@@ -1,0 +1,75 @@
+name: Build and publish (signing secrets required)
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version name (for example 1.10.1)
+        required: true
+        default: '1.10.0'
+      version_code:
+        description: Integer greater than the last published version code
+        required: true
+        default: '13'
+permissions:
+  contents: write
+concurrency:
+  group: govmap-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GOVMAP_SDK: ${{ github.workspace }}/android-sdk
+      GOVMAP_ECJ: ${{ github.workspace }}/ecj.jar
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare Android build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+          # Reuse the runner's official Android command-line tools and accepted SDK licenses.
+          ln -s "$ANDROID_HOME" "$GOVMAP_SDK"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
+          curl --fail --location --proto '=https' --tlsv1.2 --output "$GOVMAP_ECJ" \
+            https://repo.maven.apache.org/maven2/org/eclipse/jdt/ecj/3.38.0/ecj-3.38.0.jar
+          echo "97c566b120009c203a2fc8b291f4a9adbc171cf1ccb70f06f6b4e1828c00ce8e  $GOVMAP_ECJ" | sha256sum -c -
+      - name: Set version
+        env:
+          GOVMAP_VERSION: ${{ inputs.version }}
+          GOVMAP_VERSION_CODE: ${{ inputs.version_code }}
+        run: python3 scripts/set-version.py
+      - name: Restore private signing files
+        env:
+          GOVMAP_KEYSTORE_BASE64: ${{ secrets.GOVMAP_KEYSTORE_BASE64 }}
+          GOVMAP_KEYSTORE_PASSWORD: ${{ secrets.GOVMAP_KEYSTORE_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          key, password = os.environ['GOVMAP_KEYSTORE_BASE64'], os.environ['GOVMAP_KEYSTORE_PASSWORD']
+          if not key or not password:
+              raise SystemExit('Configure both GovMap signing secrets first')
+          os.umask(0o077)
+          Path('signing').mkdir(exist_ok=True)
+          Path('signing/release.p12').write_bytes(base64.b64decode(key))
+          Path('signing/password.txt').write_text(password + '\n')
+          PY
+      - name: Build and verify
+        run: |
+          bash build.sh
+          bash tests/assets/run.sh
+          bash tests/updates/run.sh
+          python3 scripts/release.py prepare
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release.py publish
+      - name: Remove runner signing files
+        if: always()
+        run: rm -rf signing

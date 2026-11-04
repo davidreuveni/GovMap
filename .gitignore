@@ -1,0 +1,8 @@
+/signing/
+/build/
+/release/
+*.apk
+!/release-input/GovMap-Dark.apk
+*.idsig
+__pycache__/
+*.pyc

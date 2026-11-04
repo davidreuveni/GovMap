@@ -1,0 +1,35 @@
+name: Publish signed APK
+on:
+  push:
+    branches: [main]
+    paths: ['release-input/**']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: govmap-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'davidreuveni/GovMap'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare APK verification tools
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Verify signed APK and reject tampering
+        run: |
+          cp release-input/GovMap-Dark.apk ../GovMap-Dark.apk
+          GOVMAP_SDK="$ANDROID_HOME" python3 tests/updates/publisher_test.py
+      - name: Publish complete verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release.py publish --sdk "$ANDROID_HOME" --apk release-input/GovMap-Dark.apk
