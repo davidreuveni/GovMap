@@ -36,6 +36,8 @@ final class AppUpdates {
     private boolean dialogOpen;
     private volatile Intent confirmationAction;
     private volatile int confirmationSession = -1;
+    private volatile String developerPhase="idle",downloadVersion="none";
+    private volatile long downloadBytes,downloadTotal;
     private final Runnable launchCheck = () -> { if (visible && enabled()) check(false, new UpdateRelease.Transfer(), null); };
     private final Runnable offerSetup = this::offerSetup;
     private void offerSetup() {
@@ -76,7 +78,7 @@ final class AppUpdates {
     private void setup(Activity a) {
         if (dialogOpen) return;
         prefs.edit().putBoolean("setupAsked", true).apply(); dialogOpen = true;
-        AlertDialog d = new AlertDialog.Builder(a).setTitle("עדכונים אוטומטיים")
+        AlertDialog d = new AlertDialog.Builder(a instanceof MainActivity ? ((MainActivity)a).developerDialogContext() : a).setTitle("עדכונים אוטומטיים")
             .setMessage("GovMap יבדוק גרסאות ב-GitHub ויוריד עדכונים חתומים. ההתקנה האוטומטית תתבצע כשהמפה סגורה, אם Android מאפשר זאת. ייתכן שתידרש הסכמה להתקנה.\n\nאפשר לשנות זאת בלחיצה ארוכה על הכותרת GovMap.")
             .setPositiveButton("הפעל", (dialog, which) -> {
                 prefs.edit().putBoolean("enabled", true).apply(); schedule(); permission(a);
@@ -95,7 +97,7 @@ final class AppUpdates {
         dialogOpen = true;
         String version = "";
         try { version = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName; } catch (Exception ignored) {}
-        AlertDialog d = new AlertDialog.Builder(a).setTitle("GovMap " + version)
+        AlertDialog d = new AlertDialog.Builder(a instanceof MainActivity ? ((MainActivity)a).developerDialogContext() : a).setTitle("GovMap " + version)
             .setMessage((enabled() ? "עדכונים אוטומטיים פעילים" : "עדכונים אוטומטיים כבויים") + "\n" + prefs.getString("status", "מקור: GitHub • davidreuveni/GovMap")
                 + (prefs.contains("installError") ? "\n\n" + prefs.getString("installError", "") : ""))
             .setPositiveButton("בדוק / התקן", (dialog, which) -> {
@@ -107,6 +109,7 @@ final class AppUpdates {
             }).setNeutralButton(enabled() ? "כבה עדכונים" : "הפעל עדכונים", (dialog, which) -> {
                 if (!enabled()) { main.post(() -> setup(a)); return; }
                 prefs.edit().putBoolean("enabled", false).apply();
+                developerPhase="disabled";
                 context.getSystemService(JobScheduler.class).cancel(JOB);
                 UpdateRelease.Transfer t = activeTransfer; if (t != null) t.cancel();
                 worker.execute(() -> { abandon(); finishCompatibility(); apk.delete(); metadata.delete(); });
@@ -121,30 +124,34 @@ final class AppUpdates {
             try {
                 if (!enabled()) return;
                 recoverSession();
-                if (compatibilityActive()) { status("מתקין Android עדיין מטפל בעדכון. חזור אליו להשלמת ההתקנה", manual); return; }
+                if (compatibilityActive()) { developerPhase="Android installer open";status("מתקין Android עדיין מטפל בעדכון. חזור אליו להשלמת ההתקנה", manual); return; }
                 long now = System.currentTimeMillis(), last = prefs.getLong("attempt", 0);
                 if (!manual && now >= last && now - last < 15 * 60 * 1000L) { install(false); return; }
                 prefs.edit().putLong("attempt", now).apply();
+                developerPhase="checking metadata";
                 if (manual) toast("בודק עדכונים…");
                 String json = new String(UpdateRelease.fetch(UpdateRelease.FEED, 16384, transfer, UpdateRelease.HTTPS), StandardCharsets.UTF_8);
                 UpdateRelease release = new UpdateRelease(json);
+                recordMetadata(release);
                 transfer.check();
-                if (release.code <= installedCode()) { status("הגרסה המותקנת מעודכנת", manual); return; }
-                if (release.minSdk > Build.VERSION.SDK_INT) { status("הגרסה החדשה דורשת Android חדש יותר", manual); return; }
+                if (release.code <= installedCode()) { developerPhase="up to date";status("הגרסה המותקנת מעודכנת", manual); return; }
+                if (release.minSdk > Build.VERSION.SDK_INT) { developerPhase="incompatible Android";status("הגרסה החדשה דורשת Android חדש יותר", manual); return; }
                 UpdateRelease ready = ready();
                 if (ready == null || ready.code != release.code || !ready.sha256.equals(release.sha256)) stage(release, transfer);
                 transfer.check();
                 if (!enabled()) return;
+                developerPhase="ready";
                 status("עדכון " + release.version + " מוכן להתקנה כשהמפה סגורה", manual);
                 if (manual && visible) main.post(() -> offerReady());
                 else install(false);
             } catch (Exception error) {
+                developerPhase=transfer.cancelled?"canceled":"check/download failed";
                 if (!transfer.cancelled) status("בדיקת GitHub נכשלה: " + detail(error), manual);
             } finally { activeTransfer = null; checking.set(false); complete(finished); }
         });
     }
     private void complete(Runnable finished) { if (finished != null) main.post(finished); }
-    private void status(String status, boolean notify) { prefs.edit().putString("status", status).apply(); if (notify) toast(status); }
+    private void status(String status, boolean notify) { DeveloperTrace.event("Updater: "+status);prefs.edit().putString("status", status).apply(); if (notify) toast(status); }
     private void toast(String text) { main.post(() -> { Activity a = current(); if (a != null) Toast.makeText(a, text, Toast.LENGTH_LONG).show(); }); }
     private long installedCode() throws Exception { return versionCode(context.getPackageManager().getPackageInfo(context.getPackageName(), 0)); }
     private static long versionCode(PackageInfo info) { return Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode; }
@@ -171,13 +178,18 @@ final class AppUpdates {
         return UpdateRelease.hex(MessageDigest.getInstance("SHA-256").digest(signatures[0].toByteArray()));
     }
     private void stage(UpdateRelease release, UpdateRelease.Transfer transfer) throws Exception {
+        developerPhase="downloading";downloadVersion=release.version;downloadBytes=0;downloadTotal=release.size;
         File part = new File(directory, "download.part"), meta = new File(directory, "metadata.part");
         try {
             try (FileOutputStream out = new FileOutputStream(part)) {
-                UpdateRelease.download(release.url, out, UpdateRelease.MAX_APK, release.size, release.sha256, transfer, UpdateRelease.HTTPS);
+                OutputStream progress=new FilterOutputStream(out){
+                    @Override public void write(byte[] bytes,int offset,int length)throws IOException{out.write(bytes,offset,length);downloadBytes+=length;}
+                    @Override public void write(int value)throws IOException{out.write(value);downloadBytes++;}
+                };
+                UpdateRelease.download(release.url, progress, UpdateRelease.MAX_APK, release.size, release.sha256, transfer, UpdateRelease.HTTPS);
                 out.getFD().sync();
             }
-            verifyApk(release, part); transfer.check();
+            developerPhase="verifying APK";verifyApk(release, part); transfer.check();
             if (!enabled()) throw new IOException("Updates disabled");
             try (FileOutputStream out = new FileOutputStream(meta)) { out.write(release.json.getBytes(StandardCharsets.UTF_8)); out.getFD().sync(); }
             // A crash between these replacements leaves a mismatched pair, rejected by ready().
@@ -198,12 +210,13 @@ final class AppUpdates {
         try {
             long compatibility = prefs.getLong("compatibilityCode", 0);
             if (compatibility > 0 && compatibility <= installedCode()) {
+                developerPhase="installed";
                 finishCompatibility(); prefs.edit().remove("installError").remove("retryAfter").putString("status", "העדכון הותקן בהצלחה").apply();
                 apk.delete(); metadata.delete();
             } else if (compatibility > 0 && !compatibilityActive()) {
                 finishCompatibility(); installationError("מתקין Android לא השלים את העדכון. אפשר לנסות התקנה רגילה שוב");
             }
-            if (prefs.contains("installCode") && prefs.getLong("installCode", 0) <= installedCode()) { clearSession(); apk.delete(); metadata.delete(); }
+            if (prefs.contains("installCode") && prefs.getLong("installCode", 0) <= installedCode()) { clearSession();developerPhase="installed";prefs.edit().remove("installError").remove("retryAfter").putString("status","העדכון הותקן בהצלחה").apply();apk.delete(); metadata.delete(); }
             else if (id != -1 && (context.getPackageManager().getPackageInstaller().getSessionInfo(id) == null
                 || System.currentTimeMillis() - prefs.getLong("sessionTime", 0) > 24 * HOUR)) abandon();
             int retained = prefs.getInt("session", -1);
@@ -231,6 +244,7 @@ final class AppUpdates {
             if (Build.VERSION.SDK_INT >= 33) params.setPackageSource(PackageInstaller.PACKAGE_SOURCE_DOWNLOADED_FILE);
             if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
             id = installer.createSession(params);
+            developerPhase="preparing install session";
             try (PackageInstaller.Session session = installer.openSession(id)) {
                 try (InputStream in = new FileInputStream(apk); OutputStream out = session.openWrite("base.apk", 0, release.size)) {
                     byte[] buffer = new byte[16384]; int count; while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count); session.fsync(out);
@@ -245,7 +259,7 @@ final class AppUpdates {
                     if (!enabled() || (!manual && visible)) { installer.abandonSession(id); return false; }
                     if (!prefs.edit().putInt("session", id).putString("token", token).putLong("installCode", release.code)
                         .putLong("sessionTime", System.currentTimeMillis()).commit()) throw new IOException("Cannot persist install state");
-                    session.commit(receiver.getIntentSender());
+                    developerPhase="installing / system verification";session.commit(receiver.getIntentSender());
                 }
             }
             return true;
@@ -261,6 +275,7 @@ final class AppUpdates {
             || result.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, result.getIntExtra("govmapSession", -2)) != prefs.getInt("session", -1)) return;
         int status = result.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            developerPhase="waiting for Android approval";
             Intent action = result.getParcelableExtra(Intent.EXTRA_INTENT);
             if (action == null || !enabled()) { worker.execute(() -> abandon()); return; }
             // Preserve the original Intent, including OS/vendor parcelables and URI grants.
@@ -269,6 +284,7 @@ final class AppUpdates {
             prefs.edit().remove("confirmation").putBoolean("confirmationNeeded", true).putString("status", "Android מבקש אישור להתקנת העדכון").commit();
             main.post(() -> showConfirmation(false));
         } else if (status == PackageInstaller.STATUS_SUCCESS) {
+            developerPhase="installed";
             clearSession(); prefs.edit().remove("retryAfter").remove("installError").putString("status", "העדכון הותקן בהצלחה").apply();
             worker.execute(() -> { apk.delete(); metadata.delete(); });
         } else {
@@ -280,7 +296,7 @@ final class AppUpdates {
     private void offerReady() {
         Activity a = current(); if (a == null || dialogOpen || !enabled()) return;
         dialogOpen = true;
-        AlertDialog d = new AlertDialog.Builder(a).setTitle("עדכון GovMap מוכן")
+        AlertDialog d = new AlertDialog.Builder(a instanceof MainActivity ? ((MainActivity)a).developerDialogContext() : a).setTitle("עדכון GovMap מוכן")
             .setMessage("להתקין עכשיו? המפה תיסגר בזמן העדכון.")
             .setPositiveButton("התקן", (dialog, which) -> { if (permission(a)) worker.execute(() -> manualInstall()); })
             .setNegativeButton("אחר כך", null).create();
@@ -292,7 +308,7 @@ final class AppUpdates {
         if (a == null || !enabled() || compatibilityActive() || dialogOpen || !needed || id == -1
             || (!manual && prefs.getInt("promptedSession", -2) == id)) return;
         dialogOpen = true; prefs.edit().putInt("promptedSession", id).apply();
-        AlertDialog d = new AlertDialog.Builder(a).setTitle("אישור עדכון GovMap")
+        AlertDialog d = new AlertDialog.Builder(a instanceof MainActivity ? ((MainActivity)a).developerDialogContext() : a).setTitle("אישור עדכון GovMap")
             .setMessage("Android דורש אישור להתקנת העדכון שהורד מ-GitHub.")
             .setPositiveButton("המשך להתקנה", (dialog, which) -> {
                 Intent original = confirmationSession == id ? confirmationAction : null;
@@ -327,9 +343,10 @@ final class AppUpdates {
             .remove("installError").putString("status", "משלים התקנה באמצעות מתקין Android").commit()) {
             installationError("לא ניתן לשמור מצב התקנה"); return true;
         }
+        developerPhase="Android installer open";
         main.post(() -> {
             Activity a = current();
-            if (a == null || !enabled()) { finishCompatibility(); return; }
+            if (a == null || !enabled()) { developerPhase=enabled()?"ready":"disabled";finishCompatibility(); return; }
             try {
                 Uri uri = Uri.parse(UpdateApkAccess.URI);
                 Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE).setDataAndType(uri, "application/vnd.android.package-archive")
@@ -349,6 +366,7 @@ final class AppUpdates {
             try {
                 long wanted = prefs.getLong("compatibilityCode", 0);
                 if (wanted > 0 && installedCode() >= wanted) {
+                    developerPhase="installed";
                     finishCompatibility(); prefs.edit().remove("installError").remove("retryAfter").putString("status", "העדכון הותקן בהצלחה").apply();
                     apk.delete(); metadata.delete(); return;
                 }
@@ -362,7 +380,31 @@ final class AppUpdates {
             } catch (Exception error) { finishCompatibility(); installationError(detail(error)); }
         });
     }
-    private void installationError(String text) { prefs.edit().putString("installError", bounded(text)).apply(); }
+    private void installationError(String text) { developerPhase="install failed/canceled";DeveloperTrace.event("Installer: "+text);prefs.edit().putString("installError", bounded(text)).apply(); }
+    void recordMetadata(UpdateRelease release){prefs.edit().putString("latestVersion",release.version).putLong("latestCode",release.code).putLong("lastMetadataSuccess",System.currentTimeMillis()).apply();}
+    /** Read-only snapshot: does not check the network, download, abandon or install. Call off UI thread. */
+    String developerDetails(){
+        StringBuilder out=new StringBuilder("Update diagnostics\n");
+        try{PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);out.append("Installed: ").append(info.versionName).append(" (code ").append(versionCode(info)).append(")\n");}catch(Exception ignored){}
+        out.append("Automatic updates: ").append(enabled()).append("\nInstall permission: ").append(context.getPackageManager().canRequestPackageInstalls())
+            .append("\nProcess phase: ").append(developerPhase).append("\nUpdate check active: ").append(checking.get())
+            .append("\nLast updater attempt: ").append(DeveloperFacts.time(prefs.getLong("attempt",0)))
+            .append("\nLast successful metadata inspection: ").append(DeveloperFacts.time(prefs.getLong("lastMetadataSuccess",0)))
+            .append("\nLatest observed release: ").append(prefs.getString("latestVersion","not checked")).append(" (code ").append(prefs.getLong("latestCode",0)).append(')')
+            .append("\nDownload version (this process): ").append(downloadVersion).append("\nPayload bytes written: ").append(downloadBytes).append(" / ").append(downloadTotal)
+            .append("\nAutomatic-install retry after: ").append(DeveloperFacts.time(prefs.getLong("retryAfter",0)))
+            .append("\nOrdinary installer active: ").append(compatibilityActive()).append('\n');
+        UpdateRelease staged=ready();out.append("Validated staged APK: ").append(staged==null?"none":staged.version+" ("+staged.size+" bytes)").append('\n');
+        int id=prefs.getInt("session",-1);out.append("Native install session: ").append(id<0?"none":Integer.toString(id)).append('\n');
+        if(id>=0)try{PackageInstaller.SessionInfo info=context.getPackageManager().getPackageInstaller().getSessionInfo(id);
+            if(info!=null)out.append("Session active: ").append(info.isActive()).append("; system progress: ").append(Math.round(Math.max(0,Math.min(1,info.getProgress()))*100)).append("%\n");
+        }catch(RuntimeException ignored){}
+        out.append("Approval pending: ").append(prefs.getBoolean("confirmationNeeded",false)||prefs.contains("confirmation"))
+            .append("\nStatus: ").append(DeveloperTrace.clean(prefs.getString("status","none")))
+            .append("\nLast installer failure: ").append(DeveloperTrace.clean(prefs.getString("installError","none")))
+            .append("\n\nRefresh reads release metadata only. It does not download or install an APK.\n");
+        return out.toString();
+    }
     private static String bounded(String text) { if (text == null) return ""; return text.length() > 600 ? text.substring(0, 600) : text; }
     private static String detail(Exception error) { return error.getClass().getSimpleName() + ": " + bounded(error.getMessage()); }
     private static String resultName(int code) {

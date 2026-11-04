@@ -38,7 +38,7 @@ final class PersistentAssetLoader {
             WebResourceResponse response;
             try{response=new WebResourceResponse(entry.mime,entry.encoding,200,"OK",entry.headers,entry.data);}catch(RuntimeException error){entry.close();throw error;}
             return response;
-        }catch(Exception e){return null;}
+        }catch(Exception e){DeveloperTrace.event("asset fallback "+DeveloperTrace.assetName(url)+" "+e.getClass().getSimpleName());return null;}
     }
     static PersistentAssetStore.Download download(String url,Map<String,String> requestHeaders)throws IOException{
         return download(url,requestHeaders,Collections.emptyMap());

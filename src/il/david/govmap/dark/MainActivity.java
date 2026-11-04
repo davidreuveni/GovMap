@@ -2,6 +2,7 @@ package il.david.govmap.dark;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -18,6 +19,7 @@ import java.io.ByteArrayInputStream;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private DeveloperTools developerTools;
     private PersistentAssetLoader assets;
     private boolean darkMode;
     private int themeMode;
@@ -49,6 +51,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        DeveloperTrace.mark("Activity onCreate");developerTools=new DeveloperTools(this);
         themeMode = getPreferences(MODE_PRIVATE).getInt("themeMode", getPreferences(MODE_PRIVATE).getBoolean("darkMode", true) ? 1 : 0);
         if (themeMode < 0 || themeMode > 2) themeMode = 1;
         darkMode = themeMode != 0;
@@ -69,8 +72,8 @@ public class MainActivity extends Activity {
         bar.setPadding(dp(12), dp(2), dp(8), dp(2));
         bar.setBackgroundColor(Color.rgb(248, 250, 253));
         TextView title = new TextView(this); title.setText("GovMap"); title.setTextSize(16);
-        title.setContentDescription("GovMap — לחיצה ארוכה לעדכוני אפליקציה");
-        title.setOnLongClickListener(v -> { AppUpdates.get(this).controls(this); return true; });
+        title.setContentDescription("GovMap — לחיצה ארוכה לכלי מפתח");
+        title.setOnLongClickListener(v -> { developerTools.menu(); return true; });
         title.setTextColor(Color.rgb(26, 48, 78)); title.setTypeface(null, Typeface.BOLD);
         bar.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
         title.setGravity(Gravity.CENTER_VERTICAL);
@@ -106,13 +109,16 @@ public class MainActivity extends Activity {
                 return assets.intercept(request);
             }
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
+                DeveloperTrace.mark("Latest page start");
                 themeDocument++;
+                developerTools.pageStarted();
                 locationDocumentReady = false;
                 if (!allowed(Uri.parse(url))) { view.stopLoading(); view.loadUrl(HOME); }
             }
-            @Override public void onPageCommitVisible(WebView view, String url) { locationDocumentReady = true; applyWebTheme(); startLocationPreload(); }
-            @Override public void onPageFinished(WebView view, String url) { locationDocumentReady = true; verifyWebTheme(); startLocationPreload(); }
+            @Override public void onPageCommitVisible(WebView view, String url) { DeveloperTrace.mark("Latest content visible");locationDocumentReady = true; applyWebTheme(); startLocationPreload(); }
+            @Override public void onPageFinished(WebView view, String url) { DeveloperTrace.mark("Latest load finished");locationDocumentReady = true; verifyWebTheme(); startLocationPreload();developerTools.pageFinished(url); }
             @Override public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                DeveloperTrace.event("WebView renderer gone; crashed="+detail.didCrash());
                 locationDocumentReady = false;
                 stopLocationWarmup(); cancelPendingLocation();
                 android.view.ViewGroup parent = (android.view.ViewGroup) view.getParent();
@@ -127,10 +133,16 @@ public class MainActivity extends Activity {
                 return true;
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError error) {
+                DeveloperTrace.event("WebView load error code="+error.getErrorCode()+" mainFrame="+req.isForMainFrame());
                 if (req.isForMainFrame()) Toast.makeText(MainActivity.this, "טעינה נכשלה. בדוק חיבור ולחץ רענון", Toast.LENGTH_LONG).show();
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onConsoleMessage(ConsoleMessage message) {
+                if(message.messageLevel()==ConsoleMessage.MessageLevel.ERROR||message.messageLevel()==ConsoleMessage.MessageLevel.WARNING)
+                    DeveloperTrace.event("JS "+message.messageLevel()+" "+DeveloperTrace.assetName(message.sourceId())+":"+message.lineNumber());
+                return false;
+            }
             @Override public boolean onCreateWindow(WebView view, boolean dialog, boolean gesture, android.os.Message message) {
                 Toast.makeText(MainActivity.this, "פתיחת חלון נוסף חסומה", Toast.LENGTH_SHORT).show(); return false;
             }
@@ -300,10 +312,19 @@ public class MainActivity extends Activity {
         getWindow().getDecorView().requestApplyInsets();
         if (web != null) { web.requestLayout(); web.invalidate(); }
     }
-    @Override protected void onPause() { AppUpdates.get(this).pause(this); foreground = false; stopLocationPreload(); stopLocationWarmup(); if (web != null) web.onPause(); super.onPause(); }
+    Context developerDialogContext() { return new android.view.ContextThemeWrapper(this,themeMode==0?android.R.style.Theme_Material_Light_Dialog_Alert:android.R.style.Theme_Material_Dialog_Alert); }
+    WebView developerWebView() { return web; }
+    boolean developerDark() { return darkMode; }
+    boolean developerOled() { return themeMode==2; }
+    boolean developerForeground() { return foreground; }
+    String developerLocationState() { return "App foreground: "+foreground+"\nGovMap document visible: "+locationDocumentReady+"\nNative warm-up listener active: "+(warmListener!=null)+"\n"; }
+    boolean developerReload() { if(web==null||web.getUrl()==null||!allowed(Uri.parse(web.getUrl())))return false;startLocationWarmup();web.reload();return true; }
+    @Override protected void onPause() { DeveloperTrace.event("Activity pause");AppUpdates.get(this).pause(this); foreground = false; stopLocationPreload(); stopLocationWarmup(); if (web != null) web.onPause(); super.onPause(); }
     @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
-        super.onActivityResult(request, result, data); AppUpdates.get(this).activityResult(request, result, data);
+        super.onActivityResult(request, result, data);
+        if(developerTools!=null&&developerTools.activityResult(request,result,data))return;
+        AppUpdates.get(this).activityResult(request, result, data);
     }
-    @Override protected void onResume() { super.onResume(); foreground = true; if (web != null) web.onResume(); startLocationWarmup(); startLocationPreload(); AppUpdates.get(this).resume(this); }
+    @Override protected void onResume() { super.onResume(); DeveloperTrace.event("Activity resume");foreground = true; if (web != null) web.onResume(); startLocationWarmup(); startLocationPreload(); AppUpdates.get(this).resume(this); }
     @Override protected void onDestroy() { AppUpdates.get(this).destroy(this); stopLocationPreload(); stopLocationWarmup(); cancelPendingLocation(); if (web != null) web.destroy(); super.onDestroy(); }
 }

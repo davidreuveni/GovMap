@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="il.david.govmap.dark" android:versionCode="16" android:versionName="1.10.03">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="il.david.govmap.dark" android:versionCode="17" android:versionName="1.10.04">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />

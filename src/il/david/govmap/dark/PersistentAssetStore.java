@@ -54,15 +54,15 @@ final class PersistentAssetStore {
         if(!eligible(url))return null;
         String key=AssetUtil.hash(url);Object lock=locks.computeIfAbsent(key,k->new Object());
         synchronized(lock){
-            Flight pending=inFlight.get(key);if(pending!=null)return pending.entry();
+            Flight pending=inFlight.get(key);if(pending!=null){Entry entry=pending.entry();DeveloperTrace.served(url,false,entry.bytes);return entry;}
             if(!directory.isDirectory()&&!directory.mkdirs())throw new IOException("Asset directory unavailable");
             File body=new File(directory,key+".body"),metaFile=new File(directory,key+".json");
             JSONObject saved=read(metaFile);
             if(valid(body,saved,url,key)){
-                body.setLastModified(System.currentTimeMillis());verified.put(key,stamp(body));return new Entry(body,saved,true);
+                body.setLastModified(System.currentTimeMillis());verified.put(key,stamp(body));Entry entry=new Entry(body,saved,true);DeveloperTrace.served(url,true,entry.bytes);return entry;
             }
             body.delete();metaFile.delete();verified.remove(key);
-            Download download=fetcher.fetch(url);
+            long started=System.nanoTime();Download download=fetcher.fetch(url);
             Flight created=null;
             try{
                 Map<String,String> h=lower(download.headers);String cc=h.getOrDefault("cache-control","").toLowerCase(Locale.ROOT);
@@ -76,19 +76,19 @@ final class PersistentAssetStore {
                 JSONObject headers=new JSONObject();
                 for(String name:new String[]{"content-type","cache-control","expires","etag","last-modified","access-control-allow-origin","cross-origin-resource-policy","content-security-policy","x-content-type-options"})if(h.containsKey(name))AssetUtil.put(headers,name,h.get(name));
                 JSONObject meta=AssetUtil.obj("url",url,"mime",mime,"encoding",encoding,"headers",headers);
-                Flight flight=new Flight(key,lock,body,metaFile,meta,download,expected,"gzip".equals(compression));
+                Flight flight=new Flight(key,lock,body,metaFile,meta,download,expected,"gzip".equals(compression),started);
                 created=flight;
                 inFlight.put(key,flight);Entry entry=flight.entry();
-                DOWNLOADS.execute(flight::produce);return entry;
+                DeveloperTrace.started(url,expected,started);DOWNLOADS.execute(flight::produce);DeveloperTrace.served(url,false,entry.bytes);return entry;
             }catch(IOException|RuntimeException e){if(created!=null){inFlight.remove(key,created);try{created.output.close();}catch(IOException ignored){}created.temporary.delete();}try{download.close();}catch(IOException ignored){}throw e;}
         }
     }
     private final class Flight {
         final String key;final Object lock;final File body,metaFile,temporary,metaTemporary;final JSONObject meta;
-        final Download download;final long expected;final boolean gzip;final FileOutputStream output;
+        final Download download;final long expected,started;final boolean gzip;final FileOutputStream output;
         long published;boolean done;IOException failure;
-        Flight(String key,Object lock,File body,File metaFile,JSONObject meta,Download download,long expected,boolean gzip)throws IOException{
-            this.key=key;this.lock=lock;this.body=body;this.metaFile=metaFile;this.meta=meta;this.download=download;this.expected=expected;this.gzip=gzip;
+        Flight(String key,Object lock,File body,File metaFile,JSONObject meta,Download download,long expected,boolean gzip,long started)throws IOException{
+            this.key=key;this.lock=lock;this.body=body;this.metaFile=metaFile;this.meta=meta;this.download=download;this.expected=expected;this.gzip=gzip;this.started=started;
             temporary=new File(directory,key+"."+UUID.randomUUID()+".part");metaTemporary=new File(directory,temporary.getName()+".json");output=new FileOutputStream(temporary);
         }
         Entry entry()throws IOException{
@@ -113,8 +113,9 @@ final class PersistentAssetStore {
         }
         void produce(){
             boolean complete=false,durable=false,stored=false;long size=0;MessageDigest digest=sha();IOException error=null;
+            CountingStream raw=new CountingStream(download.data);
             try{
-                CountingStream raw=new CountingStream(download.data);InputStream decoded=gzip?new GZIPInputStream(raw):raw;
+                InputStream decoded=gzip?new GZIPInputStream(raw):raw;
                 byte[] buffer=new byte[65536];int n;
                 while((n=decoded.read(buffer))!=-1){
                     if(n==0)continue;size+=n;if(size>MAX_ASSET||size>budget)throw new IOException("Asset size limit");
@@ -141,6 +142,7 @@ final class PersistentAssetStore {
                 inFlight.remove(key,this);if(stored)try{prune(key);}catch(RuntimeException ignored){}
                 synchronized(this){failure=error;done=true;notifyAll();}
             }
+            DeveloperTrace.downloaded(meta.optString("url"),raw.count,size,(System.nanoTime()-started)/1000000,complete,stored);
         }
     }
     private boolean valid(File body,JSONObject meta,String url,String key){

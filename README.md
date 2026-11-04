@@ -1,14 +1,36 @@
-# GovMap 1.10.03
+# GovMap 1.10.04
 
-Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version code `16`. Same saved signing key. Install as an update without uninstalling or clearing app data. Existing persistent assets from 1.8/1.8.1 remain compatible.
+## Developer menu
+
+Long-press **GovMap** for **כלי מפתח**: app updates, **דוח מהירות** (speed report), and **שמור לוג** (save app log). The menu also includes the seven additional tools below. The report reads the current WebView performance buffer on demand and adds a bounded native timing/cache snapshot. It lists slow/large public assets, native compressed network-body bytes versus decoded bytes, permanent-store reuse and file totals, plus in-progress downloads whose final byte counts are not yet available. Browser zero transfer sizes remain explicitly unknown unless the engine reports cache delivery; native/browser totals overlap and are not added together.
+
+Additional developer tools:
+
+- **Location status:** current precise/approximate permission, Android Location/provider state, latest readable cached-fix age and horizontal accuracy. Reads existing fixes only, without requesting a new fix. Coordinate values are never displayed, copied or logged.
+- **Cache overview:** bounded metadata-only inspection of permanent asset bodies, metadata/in-flight files, public metadata, staged updates and the Android app cache directory. Shows native reuse/download totals and labels incomplete scans. Does not clear files; browser-only HTTP-cache totals are not guessed.
+- **Startup/reload test:** reloads the current trusted GovMap page, records callback times and native transfer/cache deltas, then opens the speed report. A 45-second timeout produces partial results; the report explicitly distinguishes callbacks from full map-tile readiness.
+- **Connection check:** explicit bounded HTTPS probes of GovMap's root and GitHub's update metadata. Redirect hosts/TLS are validated, responses are limited, and HTTP refusals are distinguished from network failure. No APK download or installation is triggered.
+- **Copy debug info:** copies app/Android/WebView versions, updater details and recent redacted error events, only on explicit action.
+- **Fresh log session:** clears only the in-memory event journal and restarts its relative log clock. Process transfer counters, caches and previously saved documents remain intact.
+- **Detailed update status:** installed/latest observed versions, attempt/success times, permission, process phase, staged APK, byte progress, session progress and Android failures. Refresh reads metadata only, without downloading or installing. Unknown/not-recorded values remain explicit.
+
+
+App events stay in a bounded, process-local 300-entry journal; diagnostic files are written only on explicit export. The updater retains small status/metadata timestamps in its existing preferences. Console message bodies, non-public-resource URLs, URL queries, request headers, search terms and coordinates are not captured. Reports include current updater status and its last installer error with URI/credential redaction. **Save log** (or the report's save button) opens Android's document picker for a plain-text report plus app-event log. No storage permission or automatic upload is added. These are app diagnostics, not system logcat. Saving to a cloud document provider is possible only if the user chooses it in the system picker.
+
+Menu/report dialogs follow light/dark styling; the report body is black in OLED mode. Renderer/report collection has a timeout; export request IDs are kept separate from installer IDs and the pending temporary document survives Activity/process recreation. Temporary exports are private, bounded and cleaned after completion/cancellation. The native asset-store layout and streaming behavior are unchanged. New counters record metadata at cache/transfer boundaries, without per-byte diagnostics or background polling.
+
+Android menu/file-picker interaction still needs phone validation; host tests cover report sanitization, timing/cache classification, actual gzip download versus permanent reuse, bounded concurrent logs, and existing app behavior.
+
+
+Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version code `17`. Same saved signing key. Install as an update without uninstalling or clearing app data. Existing persistent assets from 1.8/1.8.1 remain compatible.
 
 ## GitHub automatic updates
 
 After a one-time opt-in, the native app checks public releases from `davidreuveni/GovMap`. Launch checks run off the UI thread after five seconds, throttled to once per 15 minutes. A network-connected, battery-not-low job checks roughly every six hours, subject to Android scheduling and device restrictions. It survives reboot; this is not instant push delivery. A check/transfer is bounded to two minutes, 16 KiB of metadata and 32 MiB per APK. Only complete, size/hash-checked APKs with the original certificate, correct package and increasing version code are staged. No GitHub token or signing key is included in the APK.
 
-Automatic installation waits until the map is closed. Android 12+ can permit self-updates without repeated confirmation when its platform requirements are satisfied. Otherwise an Android installation approval is offered on a subsequent app opening. Users must permit GovMap to install unknown apps. Long-press the GovMap title to check/install manually or turn updates off. The first setup prompt can be declined. Disabling updates cancels scheduled work and removes pending updater files/sessions.
+Automatic installation waits until the map is closed. Android 12+ can permit self-updates without repeated confirmation when its platform requirements are satisfied. Otherwise an Android installation approval is offered on a subsequent app opening. Users must permit GovMap to install unknown apps. Long-press the GovMap title, then choose app updates to check/install manually or turn updates off. The first setup prompt can be declined. Disabling updates cancels scheduled work and removes pending updater files/sessions.
 
-Version 1.10.03 is a delivery test with the same installer repair as 1.10.02. Install 1.10.02 manually once if the old updater cannot finish installation, then test its updater against 1.10.03.
+Version 1.10.04 retains the installer repair from 1.10.02 and adds developer diagnostics. Existing updater-enabled installations can receive this release through GitHub.
 
 ## Installer recovery in 1.10.02
 
@@ -50,7 +72,7 @@ Public versioned JS/CSS/fonts/images under GovMap `/assets/` continue to use `no
 
 The optional anonymous catalog cache uses a separate `no_backup/public-layer-metadata` directory and bounded language variants, with hashes checked when loading its saved JSON. Other API calls and map tiles continue through the site's original loading behavior.
 
-Measurements, report UI, profiling callbacks, debugging sockets and ZIP exporters remain removed. Location warm-up, statistical-area layer default, foreground location handling and GovMap navigation restrictions remain. `README-production.md` is historical documentation for 1.7.
+The former broad measurement profiler, debugging sockets and ZIP exporters remain removed; the developer menu above adds bounded, on-demand reports and explicit text-log export. Location warm-up, statistical-area layer default, foreground location handling and GovMap navigation restrictions remain. `README-production.md` is historical documentation for 1.7.
 
 ## Build and tests
 
@@ -64,4 +86,4 @@ GOVMAP_SDK=/absolute/android-sdk GOVMAP_ECJ=/absolute/ecj-3.38.0.jar bash govmap
 
 Output: `GovMap-Dark.apk`. The JSON jar is host-test-only and is not packaged in the APK. `LiveAssetTest.java` is a separate optional HTTPS test. Keep the original `signing/` backup private and unchanged for future signed updates.
 
-Host checks cover first-byte delivery before a gated download completes, concurrent readers, complete-only persistence, corrupt-body repair, commit-failure handling, gzip/headers, eviction, metadata freshness/validation/credential rules, and theme injection/state/contrast samples. A previous real HTTPS test retrieved GovMap's 12,878,764-byte JavaScript once and reused the same checksum after reopening the store without another fetch. Update tests exercise release parsing, unsafe URLs/redirects, transfer bounds, truncation, corrupt hashes, cancellation, actual signed-APK metadata and tamper rejection. These are component checks, not phone measurements. APK 1.10.02, Android installation dialogs, background jobs and self-replacement have not been run on a phone here. GitHub publication and Actions execution are pending repository setup. See `tests/assets/validation.md`.
+Host checks cover first-byte delivery before a gated download completes, concurrent readers, complete-only persistence, corrupt-body repair, commit-failure handling, gzip/headers, eviction, metadata freshness/validation/credential rules, and theme injection/state/contrast samples. A previous real HTTPS test retrieved GovMap's 12,878,764-byte JavaScript once and reused the same checksum after reopening the store without another fetch. Update tests exercise release parsing, unsafe URLs/redirects, transfer bounds, truncation, corrupt hashes, cancellation, actual signed-APK metadata and tamper rejection. These are component checks, not phone measurements. The new developer-menu dialogs, clipboard and file-picker interaction have not been exercised on a physical phone here. Signed-APK publication through GitHub Actions and live update-feed/download validation are verified separately. See `tests/assets/validation.md`.

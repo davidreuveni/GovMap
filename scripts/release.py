@@ -53,8 +53,9 @@ def prepare(apk, sdk, output):
     (output / "release-notes.md").write_text(
         f"GovMap {version} (version code {code})\n\n"
         "Install over the existing GovMap app. Keep application data.\n"
-        "Enable automatic updates when asked. Long-press the GovMap title for update controls.\n"
-        "Android may require installation approval.\n")
+        "Enable automatic updates when asked. Long-press GovMap for the developer menu.\n\n"
+        "Developer tools: speed report, save log, location status, cache overview, reload test, connection check, copy diagnostics, fresh log session and detailed update status.\n\n"
+        "Diagnostics export only on explicit action. Android may require installation approval.\n")
     return metadata
 
 
