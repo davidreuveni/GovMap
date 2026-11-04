@@ -301,6 +301,9 @@ public class MainActivity extends Activity {
         if (web != null) { web.requestLayout(); web.invalidate(); }
     }
     @Override protected void onPause() { AppUpdates.get(this).pause(this); foreground = false; stopLocationPreload(); stopLocationWarmup(); if (web != null) web.onPause(); super.onPause(); }
+    @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
+        super.onActivityResult(request, result, data); AppUpdates.get(this).activityResult(request, result, data);
+    }
     @Override protected void onResume() { super.onResume(); foreground = true; if (web != null) web.onResume(); startLocationWarmup(); startLocationPreload(); AppUpdates.get(this).resume(this); }
     @Override protected void onDestroy() { AppUpdates.get(this).destroy(this); stopLocationPreload(); stopLocationWarmup(); cancelPendingLocation(); if (web != null) web.destroy(); super.onDestroy(); }
 }

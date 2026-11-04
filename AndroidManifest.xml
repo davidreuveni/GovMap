@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="il.david.govmap.dark" android:versionCode="14" android:versionName="1.10.01">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="il.david.govmap.dark" android:versionCode="15" android:versionName="1.10.02">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -16,5 +16,6 @@
         </activity>
         <service android:name=".UpdateJobService" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true" />
         <receiver android:name=".UpdateResultReceiver" android:exported="false" />
+        <provider android:name=".UpdateApkProvider" android:authorities="il.david.govmap.dark.updates" android:exported="false" android:grantUriPermissions="true" />
     </application>
 </manifest>

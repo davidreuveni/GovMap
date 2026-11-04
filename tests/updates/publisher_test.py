@@ -45,4 +45,7 @@ assert int(manifest.get(a + "versionCode")) == meta["versionCode"]
 components = {x.tag: x for x in manifest.find("application") if x.tag != "activity"}
 assert components["receiver"].get(a + "exported") == "false"
 assert components["service"].get(a + "permission") == "android.permission.BIND_JOB_SERVICE"
+assert components["provider"].get(a + "exported") == "false"
+assert components["provider"].get(a + "grantUriPermissions") == "true"
+assert components["provider"].get(a + "authorities") == "il.david.govmap.dark.updates"
 print("Publisher checks passed: original signature, real APK metadata, tamper rejection, public assets, component permissions")

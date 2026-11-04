@@ -58,3 +58,7 @@ Then use **Actions → Build and publish (signing secrets required) → Run work
 ## Validation still needed on a phone
 
 Install 1.10.0, grant/decline the setup and unknown-app permission, publish a higher signed version, then check foreground download/background installation, Android confirmation fallback, process restart, reboot and existing map data. Also try offline launch and updates disabled. No Android device/emulator is connected to this workspace, so these installation/job checks have not been physically executed.
+
+## Recovering from an installer/security-scan failure
+
+Install 1.10.02 directly once if the old updater cannot finish installation. Long-press the title and use **בדוק / התקן** for a fresh ordinary Android installer flow. The automatic approval dialog also offers **התקנה רגילה**. Allow Android to perform its security checks. If installation is canceled or blocked, the update controls retain Android status/message instead of silently hiding it. These errors stay on the device and are not sent to a server. No profiling/report UI was restored.

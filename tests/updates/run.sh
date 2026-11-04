@@ -7,4 +7,5 @@ mkdir -p build/update-tests
 GOVMAP_TEST_CP="build/dark-classes:tests/assets/json.jar"
 java -jar "$GOVMAP_ECJ" -17 -nowarn -proc:none -classpath "$GOVMAP_TEST_CP" -d build/update-tests tests/updates/*.java
 java -ea -cp "build/update-tests:$GOVMAP_TEST_CP" il.david.govmap.dark.UpdateReleaseTests
+java -ea -cp "build/update-tests:$GOVMAP_TEST_CP" il.david.govmap.dark.UpdateApkAccessTests
 python3 tests/updates/publisher_test.py

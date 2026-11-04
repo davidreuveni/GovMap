@@ -1,6 +1,6 @@
-# GovMap 1.10.01
+# GovMap 1.10.02
 
-Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version code `14`. Same saved signing key. Install as an update without uninstalling or clearing app data. Existing persistent assets from 1.8/1.8.1 remain compatible.
+Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version code `15`. Same saved signing key. Install as an update without uninstalling or clearing app data. Existing persistent assets from 1.8/1.8.1 remain compatible.
 
 ## GitHub automatic updates
 
@@ -8,9 +8,11 @@ After a one-time opt-in, the native app checks public releases from `davidreuven
 
 Automatic installation waits until the map is closed. Android 12+ can permit self-updates without repeated confirmation when its platform requirements are satisfied. Otherwise an Android installation approval is offered on a subsequent app opening. Users must permit GovMap to install unknown apps. Long-press the GovMap title to check/install manually or turn updates off. The first setup prompt can be declined. Disabling updates cancels scheduled work and removes pending updater files/sessions.
 
-## Update delivery test
+## Installer recovery in 1.10.02
 
-Version **1.10.01** (code **14**) changes only release/version metadata. It tests delivery from installed 1.10.0 (code 13); application behavior is unchanged.
+A failed security-scan/installer handoff can leave an old install session waiting. Manual **בדוק / התקן** now starts a fresh ordinary Android APK-installer flow using a temporary read-only content URI for the verified APK. Automatic installation still uses PackageInstaller. Its original approval Intent is retained in memory without URI serialization; after process death a manual fallback starts a fresh flow. Device security checks remain in control.
+
+Installer failure code/message is retained in the title's update controls. Cancellations no longer silently reuse the same failed session. While the ordinary installer is active, checks do not replace the APK being read. The provider is not exported, accepts one exact read-only URI, rejects path traversal, write access and symlink escapes, and exposes no signing or other app files. Confirmed OEM scan behavior still requires a phone test.
 
 ## Publish an update
 
@@ -60,4 +62,4 @@ GOVMAP_SDK=/absolute/android-sdk GOVMAP_ECJ=/absolute/ecj-3.38.0.jar bash govmap
 
 Output: `GovMap-Dark.apk`. The JSON jar is host-test-only and is not packaged in the APK. `LiveAssetTest.java` is a separate optional HTTPS test. Keep the original `signing/` backup private and unchanged for future signed updates.
 
-Host checks cover first-byte delivery before a gated download completes, concurrent readers, complete-only persistence, corrupt-body repair, commit-failure handling, gzip/headers, eviction, metadata freshness/validation/credential rules, and theme injection/state/contrast samples. A previous real HTTPS test retrieved GovMap's 12,878,764-byte JavaScript once and reused the same checksum after reopening the store without another fetch. Update tests exercise release parsing, unsafe URLs/redirects, transfer bounds, truncation, corrupt hashes, cancellation, actual signed-APK metadata and tamper rejection. These are component checks, not phone measurements. APK 1.10.0, Android installation dialogs, background jobs and self-replacement have not been run on a phone here. GitHub publication and Actions execution are pending repository setup. See `tests/assets/validation.md`.
+Host checks cover first-byte delivery before a gated download completes, concurrent readers, complete-only persistence, corrupt-body repair, commit-failure handling, gzip/headers, eviction, metadata freshness/validation/credential rules, and theme injection/state/contrast samples. A previous real HTTPS test retrieved GovMap's 12,878,764-byte JavaScript once and reused the same checksum after reopening the store without another fetch. Update tests exercise release parsing, unsafe URLs/redirects, transfer bounds, truncation, corrupt hashes, cancellation, actual signed-APK metadata and tamper rejection. These are component checks, not phone measurements. APK 1.10.02, Android installation dialogs, background jobs and self-replacement have not been run on a phone here. GitHub publication and Actions execution are pending repository setup. See `tests/assets/validation.md`.
