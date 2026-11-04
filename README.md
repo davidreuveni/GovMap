@@ -1,12 +1,14 @@
-# GovMap 1.10.02
+# GovMap 1.10.03
 
-Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version code `15`. Same saved signing key. Install as an update without uninstalling or clearing app data. Existing persistent assets from 1.8/1.8.1 remain compatible.
+Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version code `16`. Same saved signing key. Install as an update without uninstalling or clearing app data. Existing persistent assets from 1.8/1.8.1 remain compatible.
 
 ## GitHub automatic updates
 
 After a one-time opt-in, the native app checks public releases from `davidreuveni/GovMap`. Launch checks run off the UI thread after five seconds, throttled to once per 15 minutes. A network-connected, battery-not-low job checks roughly every six hours, subject to Android scheduling and device restrictions. It survives reboot; this is not instant push delivery. A check/transfer is bounded to two minutes, 16 KiB of metadata and 32 MiB per APK. Only complete, size/hash-checked APKs with the original certificate, correct package and increasing version code are staged. No GitHub token or signing key is included in the APK.
 
 Automatic installation waits until the map is closed. Android 12+ can permit self-updates without repeated confirmation when its platform requirements are satisfied. Otherwise an Android installation approval is offered on a subsequent app opening. Users must permit GovMap to install unknown apps. Long-press the GovMap title to check/install manually or turn updates off. The first setup prompt can be declined. Disabling updates cancels scheduled work and removes pending updater files/sessions.
+
+Version 1.10.03 is a delivery test with the same installer repair as 1.10.02. Install 1.10.02 manually once if the old updater cannot finish installation, then test its updater against 1.10.03.
 
 ## Installer recovery in 1.10.02
 
