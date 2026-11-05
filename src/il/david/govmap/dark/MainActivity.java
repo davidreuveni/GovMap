@@ -2,11 +2,17 @@ package il.david.govmap.dark;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.verify.domain.DomainVerificationManager;
+import android.content.pm.verify.domain.DomainVerificationUserState;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.webkit.*;
 import android.widget.*;
 import android.view.*;
@@ -20,6 +26,7 @@ import java.io.ByteArrayInputStream;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private AlertDialog linkSetupDialog;
     private DeveloperTools developerTools;
     private PersistentAssetLoader assets;
     private boolean darkMode;
@@ -175,6 +182,62 @@ public class MainActivity extends Activity {
         if (web == null) recreate();
         else web.loadUrl(link);
     }
+    private void maybeOfferLinkSetup() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || isFinishing() || linkSetupDialog != null
+            || !Intent.ACTION_MAIN.equals(getIntent().getAction())
+            || getPreferences(MODE_PRIVATE).getBoolean("linkSetupAsked", false)
+            || !linkApprovalNeeded()) return;
+
+        linkSetupDialog = new AlertDialog.Builder(developerDialogContext())
+            .setTitle("פתיחת קישורי GovMap באפליקציה")
+            .setMessage("כדי שקישורי GovMap מווטסאפ ומאפליקציות אחרות ייפתחו כאן, הפעילו ״פתיחת קישורים נתמכים״ ובחרו את כתובות GovMap אם תתבקשו.")
+            .setPositiveButton("פתיחת הגדרות", (dialog, which) -> finishLinkSetup(true))
+            .setNegativeButton("לא עכשיו", (dialog, which) -> finishLinkSetup(false))
+            .setOnCancelListener(dialog -> finishLinkSetup(false))
+            .show();
+        getPreferences(MODE_PRIVATE).edit().putBoolean("linkSetupAsked", true).apply();
+    }
+    private boolean linkApprovalNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false;
+        DomainVerificationManager manager = getSystemService(DomainVerificationManager.class);
+        if (manager == null) return false;
+        try {
+            DomainVerificationUserState state = manager.getDomainVerificationUserState(getPackageName());
+            if (state == null) return false;
+            java.util.Map<String, Integer> hosts = state.getHostToStateMap();
+            return !state.isLinkHandlingAllowed() || !linkHostApproved(hosts.get(GovMapLinks.WWW_HOST))
+                || !linkHostApproved(hosts.get(GovMapLinks.ROOT_HOST));
+        } catch (PackageManager.NameNotFoundException | SecurityException ignored) {
+            return false;
+        }
+    }
+    private static boolean linkHostApproved(Integer state) {
+        return state != null && (state == DomainVerificationUserState.DOMAIN_STATE_SELECTED
+            || state == DomainVerificationUserState.DOMAIN_STATE_VERIFIED);
+    }
+    private void finishLinkSetup(boolean openSettings) {
+        linkSetupDialog = null;
+        if (!openSettings || !openLinkSettings()) startLocationPreload();
+    }
+    boolean openLinkSettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !foreground || isFinishing()) return false;
+        Uri app = Uri.fromParts("package", getPackageName(), null);
+        if (startLinkSettings(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, app)) return true;
+        if (startLinkSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, app)) {
+            Toast.makeText(this, "בחרו ״פתיחה כברירת מחדל״", Toast.LENGTH_LONG).show();
+            return true;
+        }
+        Toast.makeText(this, "לא ניתן לפתוח את הגדרות הקישורים", Toast.LENGTH_SHORT).show();
+        return false;
+    }
+    private boolean startLinkSettings(String action, Uri app) {
+        try {
+            startActivity(new Intent(action, app));
+            return true;
+        } catch (ActivityNotFoundException | SecurityException ignored) {
+            return false;
+        }
+    }
     private boolean hasLocationPermission() {
         return checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
             || checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
@@ -183,6 +246,7 @@ public class MainActivity extends Activity {
         if (!foreground || !locationDocumentReady || web == null || locationScript.isEmpty() || web.getUrl() == null || !allowed(Uri.parse(web.getUrl()))) return;
         boolean granted = hasLocationPermission();
         if (!granted) {
+            if (linkSetupDialog != null) return;
             // Automatic preloading may ask once; a declined permission can still be requested using the site's button.
             if (getPreferences(MODE_PRIVATE).getBoolean("locationPreloadAsked", false)
                 || shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -339,6 +403,6 @@ public class MainActivity extends Activity {
         if(developerTools!=null&&developerTools.activityResult(request,result,data))return;
         AppUpdates.get(this).activityResult(request, result, data);
     }
-    @Override protected void onResume() { super.onResume(); DeveloperTrace.event("Activity resume");foreground = true; if (web != null) web.onResume(); startLocationWarmup(); startLocationPreload(); AppUpdates.get(this).resume(this); }
-    @Override protected void onDestroy() { AppUpdates.get(this).destroy(this); stopLocationPreload(); stopLocationWarmup(); cancelPendingLocation(); if (web != null) web.destroy(); super.onDestroy(); }
+    @Override protected void onResume() { super.onResume(); DeveloperTrace.event("Activity resume");foreground = true; if (web != null) web.onResume(); maybeOfferLinkSetup(); startLocationWarmup(); startLocationPreload(); AppUpdates.get(this).resume(this); }
+    @Override protected void onDestroy() { if (linkSetupDialog != null) { linkSetupDialog.dismiss(); linkSetupDialog = null; } AppUpdates.get(this).destroy(this); stopLocationPreload(); stopLocationWarmup(); cancelPendingLocation(); if (web != null) web.destroy(); super.onDestroy(); }
 }

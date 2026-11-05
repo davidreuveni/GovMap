@@ -26,7 +26,9 @@ Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version 
 
 ## Opening shared GovMap links
 
-On Android 12 or later, open **Settings → Apps → GovMap → Open by default**, turn on **Open supported links**, and select the GovMap addresses if prompted. Android needs this one-time approval for this app to handle the website's links. Then tap a GovMap HTTPS link in another app to open its shared map view. The app passes the original coordinates, zoom, layers, and basemap parameters to GovMap.
+On Android 12 or later, GovMap offers setup once on a normal launch if link approval is missing. Tap **פתיחת הגדרות** (Open settings) to jump to **Open by default**. Turn on **Open supported links** and select both GovMap addresses if prompted. If you skip the prompt, long-press **GovMap** and choose **פתיחת קישורי GovMap** (Open GovMap links) to return to that screen. On phones that do not provide the direct shortcut, the button opens GovMap's app info instead.
+
+After approving the addresses, tap a GovMap HTTPS link in another app to open its shared map view. The app passes the original coordinates, zoom, layers, and basemap parameters to GovMap.
 
 ## GitHub automatic updates
 
