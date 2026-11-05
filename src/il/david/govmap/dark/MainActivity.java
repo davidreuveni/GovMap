@@ -397,6 +397,10 @@ public class MainActivity extends Activity {
     boolean developerForeground() { return foreground; }
     String developerLocationState() { return "App foreground: "+foreground+"\nGovMap document visible: "+locationDocumentReady+"\nNative warm-up listener active: "+(warmListener!=null)+"\n"; }
     boolean developerReload() { if(web==null||web.getUrl()==null||!allowed(Uri.parse(web.getUrl())))return false;startLocationWarmup();web.reload();return true; }
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && foreground) AppUpdates.get(this).windowFocused(this);
+    }
     @Override protected void onPause() { DeveloperTrace.event("Activity pause");AppUpdates.get(this).pause(this); foreground = false; stopLocationPreload(); stopLocationWarmup(); if (web != null) web.onPause(); super.onPause(); }
     @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
         super.onActivityResult(request, result, data);

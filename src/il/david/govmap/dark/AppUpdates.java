@@ -44,7 +44,7 @@ final class AppUpdates {
         Activity a = current();
         if (a != null && a.hasWindowFocus() && !prefs.getBoolean("setupAsked", false) && !dialogOpen) setup(a);
     }
-    private final Runnable installWhenClosed = () -> worker.execute(() -> install(false));
+    private final Runnable installAfterPause = () -> worker.execute(this::installStaged);
 
     private AppUpdates(Context context) {
         this.context = context; prefs = context.getSharedPreferences("app-updates", Context.MODE_PRIVATE);
@@ -55,15 +55,22 @@ final class AppUpdates {
     private Activity current() { Activity a = activity.get(); return visible && a != null && !a.isFinishing() && !a.isDestroyed() ? a : null; }
     void resume(Activity a) {
         synchronized (this) { activity = new WeakReference<>(a); visible = true; }
-        main.removeCallbacks(installWhenClosed); main.removeCallbacks(launchCheck); main.removeCallbacks(offerSetup);
-        if (enabled()) { schedule(); worker.execute(() -> recoverSession()); main.postDelayed(launchCheck, 5000); main.postDelayed(() -> showConfirmation(false), 1500); }
+        main.removeCallbacks(installAfterPause); main.removeCallbacks(launchCheck); main.removeCallbacks(offerSetup);
+        if (enabled()) {
+            schedule();
+            worker.execute(this::installStaged);
+            main.postDelayed(launchCheck, 5000);
+        }
         else if (!prefs.getBoolean("setupAsked", false)) main.postDelayed(offerSetup, 10000);
+    }
+    void windowFocused(Activity a) {
+        if (current() == a) main.post(this::showConfirmation);
     }
     void pause(Activity a) {
         if (activity.get() != a) return;
         synchronized (this) { visible = false; }
         main.removeCallbacks(launchCheck); main.removeCallbacks(offerSetup);
-        main.removeCallbacks(installWhenClosed); main.postDelayed(installWhenClosed, 2500);
+        main.removeCallbacks(installAfterPause); main.postDelayed(installAfterPause, 2500);
     }
     void destroy(Activity a) { if (activity.get() == a) { visible = false; activity.clear(); dialogOpen = false; } }
     private void schedule() {
@@ -79,7 +86,7 @@ final class AppUpdates {
         if (dialogOpen) return;
         prefs.edit().putBoolean("setupAsked", true).apply(); dialogOpen = true;
         AlertDialog d = new AlertDialog.Builder(a instanceof MainActivity ? ((MainActivity)a).developerDialogContext() : a).setTitle("עדכונים אוטומטיים")
-            .setMessage("GovMap יבדוק גרסאות ב-GitHub ויוריד עדכונים חתומים. ההתקנה האוטומטית תתבצע כשהמפה סגורה, אם Android מאפשר זאת. ייתכן שתידרש הסכמה להתקנה.\n\nאפשר לשנות זאת בלחיצה ארוכה על הכותרת GovMap.")
+            .setMessage("GovMap יבדוק גרסאות ב-GitHub ויוריד עדכונים חתומים. ההתקנה יכולה להתחיל גם כשהמפה פתוחה, והאפליקציה עשויה להיסגר בזמן העדכון. ייתכן ש-Android יבקש אישור להתקנה.\n\nאפשר לשנות זאת בלחיצה ארוכה על הכותרת GovMap.")
             .setPositiveButton("הפעל", (dialog, which) -> {
                 prefs.edit().putBoolean("enabled", true).apply(); schedule(); permission(a);
                 check(true, new UpdateRelease.Transfer(), null);
@@ -126,7 +133,7 @@ final class AppUpdates {
                 recoverSession();
                 if (compatibilityActive()) { developerPhase="Android installer open";status("מתקין Android עדיין מטפל בעדכון. חזור אליו להשלמת ההתקנה", manual); return; }
                 long now = System.currentTimeMillis(), last = prefs.getLong("attempt", 0);
-                if (!manual && now >= last && now - last < 15 * 60 * 1000L) { install(false); return; }
+                if (!manual && now >= last && now - last < 15 * 60 * 1000L) { installStaged(); return; }
                 prefs.edit().putLong("attempt", now).apply();
                 developerPhase="checking metadata";
                 if (manual) toast("בודק עדכונים…");
@@ -141,9 +148,8 @@ final class AppUpdates {
                 transfer.check();
                 if (!enabled()) return;
                 developerPhase="ready";
-                status("עדכון " + release.version + " מוכן להתקנה כשהמפה סגורה", manual);
-                if (manual && visible) main.post(() -> offerReady());
-                else install(false);
+                status("עדכון " + release.version + " מוכן להתקנה", false);
+                if (!installStaged() && manual) main.post(this::offerReady);
             } catch (Exception error) {
                 developerPhase=transfer.cancelled?"canceled":"check/download failed";
                 if (!transfer.cancelled) status("בדיקת GitHub נכשלה: " + detail(error), manual);
@@ -211,12 +217,12 @@ final class AppUpdates {
             long compatibility = prefs.getLong("compatibilityCode", 0);
             if (compatibility > 0 && compatibility <= installedCode()) {
                 developerPhase="installed";
-                finishCompatibility(); prefs.edit().remove("installError").remove("retryAfter").putString("status", "העדכון הותקן בהצלחה").apply();
+                finishCompatibility(); prefs.edit().remove("installError").remove("retryAfter").remove("retryCode").putString("status", "העדכון הותקן בהצלחה").apply();
                 apk.delete(); metadata.delete();
             } else if (compatibility > 0 && !compatibilityActive()) {
                 finishCompatibility(); installationError("מתקין Android לא השלים את העדכון. אפשר לנסות התקנה רגילה שוב");
             }
-            if (prefs.contains("installCode") && prefs.getLong("installCode", 0) <= installedCode()) { clearSession();developerPhase="installed";prefs.edit().remove("installError").remove("retryAfter").putString("status","העדכון הותקן בהצלחה").apply();apk.delete(); metadata.delete(); }
+            if (prefs.contains("installCode") && prefs.getLong("installCode", 0) <= installedCode()) { clearSession();developerPhase="installed";prefs.edit().remove("installError").remove("retryAfter").remove("retryCode").putString("status","העדכון הותקן בהצלחה").apply();apk.delete(); metadata.delete(); }
             else if (id != -1 && (context.getPackageManager().getPackageInstaller().getSessionInfo(id) == null
                 || System.currentTimeMillis() - prefs.getLong("sessionTime", 0) > 24 * HOUR)) abandon();
             int retained = prefs.getInt("session", -1);
@@ -230,12 +236,22 @@ final class AppUpdates {
         if (id != -1) try { context.getPackageManager().getPackageInstaller().abandonSession(id); } catch (RuntimeException ignored) {}
         clearSession();
     }
-    private boolean install(boolean manual) {
-        if (!enabled() || compatibilityActive() || (!manual && visible) || !context.getPackageManager().canRequestPackageInstalls()) return false;
+    private boolean installStaged() {
+        if (!enabled()) return false;
         recoverSession();
-        if (prefs.getInt("session", -1) != -1) { main.post(() -> showConfirmation(manual)); return true; }
-        if (!manual && System.currentTimeMillis() < prefs.getLong("retryAfter", 0)) return false;
+        if (compatibilityActive()) return false;
+        if (prefs.getInt("session", -1) != -1) { main.post(this::showConfirmation); return true; }
         UpdateRelease release = ready(); if (release == null) return false;
+        if (!context.getPackageManager().canRequestPackageInstalls()) {
+            developerPhase = "waiting for install permission";
+            String message = "העדכון מוכן. יש לאפשר ל-GovMap להתקין אפליקציות בהגדרות Android";
+            if (!message.equals(prefs.getString("status", ""))) status(message, false);
+            return false;
+        }
+        if (prefs.getLong("retryCode", 0) == release.code && System.currentTimeMillis() < prefs.getLong("retryAfter", 0)) {
+            developerPhase = "automatic install retry delayed";
+            return false;
+        }
         PackageInstaller installer = context.getPackageManager().getPackageInstaller(); int id = -1;
         try {
             PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
@@ -255,20 +271,27 @@ final class AppUpdates {
                 int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
                 PendingIntent receiver = PendingIntent.getBroadcast(context, id, result, flags);
                 synchronized (this) {
-                    // Never interrupt an active map with an automatic installation.
-                    if (!enabled() || (!manual && visible)) { installer.abandonSession(id); return false; }
+                    if (!enabled() || !context.getPackageManager().canRequestPackageInstalls()) {
+                        installer.abandonSession(id); return false;
+                    }
                     if (!prefs.edit().putInt("session", id).putString("token", token).putLong("installCode", release.code)
                         .putLong("sessionTime", System.currentTimeMillis()).commit()) throw new IOException("Cannot persist install state");
-                    developerPhase="installing / system verification";session.commit(receiver.getIntentSender());
+                    developerPhase="installing / system verification";
+                    status("Android מתקין את עדכון " + release.version, false);
+                    session.commit(receiver.getIntentSender());
                 }
             }
             return true;
         } catch (Exception error) {
             if (id != -1) try { installer.abandonSession(id); } catch (RuntimeException ignored) {}
-            clearSession(); prefs.edit().putLong("retryAfter", System.currentTimeMillis() + 6 * HOUR).apply();
+            recordInstallBackoff(release.code);
+            clearSession();
             installationError("לא ניתן להתקין אוטומטית: " + detail(error));
-            status("לחץ לחיצה ארוכה על GovMap להתקנה רגילה", manual); return false;
+            status("לחץ לחיצה ארוכה על GovMap להתקנה רגילה", false); return false;
         }
+    }
+    private void recordInstallBackoff(long code) {
+        prefs.edit().putLong("retryCode", code).putLong("retryAfter", System.currentTimeMillis() + 6 * HOUR).apply();
     }
     void installationResult(Intent result) {
         if (result == null || !prefs.getString("token", "").equals(result.getDataString())
@@ -282,19 +305,20 @@ final class AppUpdates {
             // Intent.toUri()/parseUri() is not a lossless transport for installer intents.
             confirmationAction = new Intent(action); confirmationSession = prefs.getInt("session", -1);
             prefs.edit().remove("confirmation").putBoolean("confirmationNeeded", true).putString("status", "Android מבקש אישור להתקנת העדכון").commit();
-            main.post(() -> showConfirmation(false));
+            main.post(this::showConfirmation);
         } else if (status == PackageInstaller.STATUS_SUCCESS) {
             developerPhase="installed";
-            clearSession(); prefs.edit().remove("retryAfter").remove("installError").putString("status", "העדכון הותקן בהצלחה").apply();
+            clearSession(); prefs.edit().remove("retryAfter").remove("retryCode").remove("installError").putString("status", "העדכון הותקן בהצלחה").apply();
             worker.execute(() -> { apk.delete(); metadata.delete(); });
         } else {
-            clearSession(); prefs.edit().putLong("retryAfter", System.currentTimeMillis() + 6 * HOUR)
-                .putString("status", "ההתקנה לא הושלמה. אפשר לנסות שוב בלחיצה ארוכה על GovMap").apply();
+            recordInstallBackoff(prefs.getLong("installCode", 0));
+            clearSession();
+            prefs.edit().putString("status", "ההתקנה לא הושלמה. אפשר לנסות שוב בלחיצה ארוכה על GovMap").apply();
             installationError("Android: " + resultName(status) + " (" + status + ")\n" + bounded(result.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)));
         }
     }
     private void offerReady() {
-        Activity a = current(); if (a == null || dialogOpen || !enabled()) return;
+        Activity a = current(); if (a == null || !a.hasWindowFocus() || dialogOpen || !enabled()) return;
         dialogOpen = true;
         AlertDialog d = new AlertDialog.Builder(a instanceof MainActivity ? ((MainActivity)a).developerDialogContext() : a).setTitle("עדכון GovMap מוכן")
             .setMessage("להתקין עכשיו? המפה תיסגר בזמן העדכון.")
@@ -302,11 +326,11 @@ final class AppUpdates {
             .setNegativeButton("אחר כך", null).create();
         d.setOnDismissListener(dialog -> dialogOpen = false); d.show();
     }
-    private void showConfirmation(boolean manual) {
+    private void showConfirmation() {
         Activity a = current(); int id = prefs.getInt("session", -1);
         boolean needed = prefs.getBoolean("confirmationNeeded", false) || prefs.contains("confirmation");
-        if (a == null || !enabled() || compatibilityActive() || dialogOpen || !needed || id == -1
-            || (!manual && prefs.getInt("promptedSession", -2) == id)) return;
+        if (a == null || !a.hasWindowFocus() || !enabled() || dialogOpen || !needed || id == -1
+            || prefs.getInt("promptedSession", -2) == id || compatibilityActive()) return;
         dialogOpen = true; prefs.edit().putInt("promptedSession", id).apply();
         AlertDialog d = new AlertDialog.Builder(a instanceof MainActivity ? ((MainActivity)a).developerDialogContext() : a).setTitle("אישור עדכון GovMap")
             .setMessage("Android דורש אישור להתקנת העדכון שהורד מ-GitHub.")
@@ -367,10 +391,10 @@ final class AppUpdates {
                 long wanted = prefs.getLong("compatibilityCode", 0);
                 if (wanted > 0 && installedCode() >= wanted) {
                     developerPhase="installed";
-                    finishCompatibility(); prefs.edit().remove("installError").remove("retryAfter").putString("status", "העדכון הותקן בהצלחה").apply();
+                    finishCompatibility(); prefs.edit().remove("installError").remove("retryAfter").remove("retryCode").putString("status", "העדכון הותקן בהצלחה").apply();
                     apk.delete(); metadata.delete(); return;
                 }
-                finishCompatibility(); prefs.edit().putLong("retryAfter", System.currentTimeMillis() + 6 * HOUR).apply();
+                finishCompatibility(); recordInstallBackoff(wanted);
                 String message = data == null ? "" : bounded(data.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
                 String installerCode = data != null && data.hasExtra("android.intent.extra.INSTALL_RESULT")
                     ? ", installerCode=" + data.getIntExtra("android.intent.extra.INSTALL_RESULT", 0) : "";
@@ -393,6 +417,7 @@ final class AppUpdates {
             .append("\nLatest observed release: ").append(prefs.getString("latestVersion","not checked")).append(" (code ").append(prefs.getLong("latestCode",0)).append(')')
             .append("\nDownload version (this process): ").append(downloadVersion).append("\nPayload bytes written: ").append(downloadBytes).append(" / ").append(downloadTotal)
             .append("\nAutomatic-install retry after: ").append(DeveloperFacts.time(prefs.getLong("retryAfter",0)))
+            .append("\nRetry version code: ").append(prefs.getLong("retryCode",0))
             .append("\nOrdinary installer active: ").append(compatibilityActive()).append('\n');
         UpdateRelease staged=ready();out.append("Validated staged APK: ").append(staged==null?"none":staged.version+" ("+staged.size+" bytes)").append('\n');
         int id=prefs.getInt("session",-1);out.append("Native install session: ").append(id<0?"none":Integer.toString(id)).append('\n');
