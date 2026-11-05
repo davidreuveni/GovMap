@@ -54,6 +54,8 @@ def prepare(apk, sdk, output):
         f"GovMap {version} (version code {code})\n\n"
         "Install over the existing GovMap app. Keep application data.\n"
         "Enable automatic updates when asked. Long-press GovMap for the developer menu.\n\n"
+        "Shared GovMap links open in the app after one-time Android setup. The shared map keeps its coordinates, zoom, layers and basemap.\n"
+        "Automatic updates can start installing while GovMap is open. Android may ask for approval and may close the app to replace it.\n\n"
         "Developer tools: speed report, save log, location status, cache overview, reload test, connection check, copy diagnostics, fresh log session and detailed update status.\n\n"
         "Diagnostics export only on explicit action. Android may require installation approval.\n")
     return metadata

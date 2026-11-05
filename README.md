@@ -1,4 +1,4 @@
-# GovMap 1.10.04
+# GovMap 1.10.05
 
 ## Developer menu
 
@@ -22,7 +22,7 @@ Menu/report dialogs follow light/dark styling; the report body is black in OLED 
 Android menu/file-picker interaction still needs phone validation; host tests cover report sanitization, timing/cache classification, actual gzip download versus permanent reuse, bounded concurrent logs, and existing app behavior.
 
 
-Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version code `17`. Same saved signing key. Install as an update without uninstalling or clearing app data. Existing persistent assets from 1.8/1.8.1 remain compatible.
+Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version code `18`. Same saved signing key. Install as an update without uninstalling or clearing app data. Existing persistent assets from 1.8/1.8.1 remain compatible.
 
 ## Opening shared GovMap links
 
@@ -36,7 +36,7 @@ After a one-time opt-in, the native app checks public releases from `davidreuven
 
 With automatic updates enabled, GovMap attempts installation after download or when you open the app with a verified update already waiting. You can keep the map open during the attempt. Android may close GovMap to replace it. Android 12+ can permit self-updates without repeated confirmation when its platform requirements are satisfied. If Android needs approval, GovMap offers it while the map is open and in focus. Users must permit GovMap to install unknown apps. A failed install delays automatic retries for that version; a newer release can still install. Long-press the GovMap title, then choose app updates to check/install manually or turn updates off. The first setup prompt can be declined. Disabling updates cancels scheduled work and removes pending updater files/sessions.
 
-Version 1.10.04 retains the installer repair from 1.10.02 and adds developer diagnostics. Existing updater-enabled installations can receive this release through GitHub.
+Version 1.10.05 adds shared GovMap links, a one-time link setup prompt, and automatic installation attempts while the app is open. Existing updater-enabled installations can receive this release through GitHub.
 
 ## Installer recovery in 1.10.02
 
