@@ -33,8 +33,10 @@ final class DeveloperTools {
     private long startupId;
     DeveloperTools(MainActivity activity){this.activity=activity;context=activity.getApplicationContext();}
     void menu(){
+        String[] items = {"עדכוני אפליקציה","דוח מהירות","שמור לוג","מצב מיקום","סקירת אחסון וקאש","בדיקת טעינה מחדש","בדיקת חיבור","העתק פרטי אבחון","התחל לוג נקי","מצב עדכון מפורט","פתיחת קישורי GovMap"};
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) items = Arrays.copyOf(items, items.length - 1);
         new AlertDialog.Builder(activity.developerDialogContext()).setTitle("כלי מפתח")
-            .setItems(new String[]{"עדכוני אפליקציה","דוח מהירות","שמור לוג","מצב מיקום","סקירת אחסון וקאש","בדיקת טעינה מחדש","בדיקת חיבור","העתק פרטי אבחון","התחל לוג נקי","מצב עדכון מפורט"},(dialog,index)->main.post(()->{
+            .setItems(items,(dialog,index)->main.post(()->{
                 switch(index){
                     case 0:AppUpdates.get(activity).controls(activity);break;
                     case 1:capture(false);break;
@@ -46,6 +48,7 @@ final class DeveloperTools {
                     case 7:copyDebug();break;
                     case 8:DeveloperTrace.freshLog();toast("לוג חדש התחיל");break;
                     case 9:updateDetails(false);break;
+                    case 10:activity.openLinkSettings();break;
                 }
             })).setNegativeButton("סגור",null).show();
     }
