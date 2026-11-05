@@ -24,6 +24,10 @@ Android menu/file-picker interaction still needs phone validation; host tests co
 
 Android 8.0+. Launcher name **GovMap**, package `il.david.govmap.dark`, version code `17`. Same saved signing key. Install as an update without uninstalling or clearing app data. Existing persistent assets from 1.8/1.8.1 remain compatible.
 
+## Opening shared GovMap links
+
+On Android 12 or later, open **Settings → Apps → GovMap → Open by default**, turn on **Open supported links**, and select the GovMap addresses if prompted. Android needs this one-time approval for this app to handle the website's links. Then tap a GovMap HTTPS link in another app to open its shared map view. The app passes the original coordinates, zoom, layers, and basemap parameters to GovMap.
+
 ## GitHub automatic updates
 
 After a one-time opt-in, the native app checks public releases from `davidreuveni/GovMap`. Launch checks run off the UI thread after five seconds, throttled to once per 15 minutes. A network-connected, battery-not-low job checks roughly every six hours, subject to Android scheduling and device restrictions. It survives reboot; this is not instant push delivery. A check/transfer is bounded to two minutes, 16 KiB of metadata and 32 MiB per APK. Only complete, size/hash-checked APKs with the original certificate, correct package and increasing version code are staged. No GitHub token or signing key is included in the APK.

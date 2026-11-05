@@ -10,5 +10,6 @@ java -ea -cp "build/update-tests:$GOVMAP_TEST_CP" il.david.govmap.dark.UpdateRel
 java -ea -cp "build/update-tests:$GOVMAP_TEST_CP" il.david.govmap.dark.UpdateApkAccessTests
 java -ea -cp "build/update-tests:$GOVMAP_TEST_CP" il.david.govmap.dark.DeveloperTraceTests
 java -ea -cp "build/update-tests:$GOVMAP_TEST_CP" il.david.govmap.dark.DeveloperUtilitiesTests
+java -ea -cp "build/update-tests:$GOVMAP_TEST_CP" il.david.govmap.dark.GovMapLinksTests
 node tests/speed-report.test.cjs
 python3 tests/updates/publisher_test.py

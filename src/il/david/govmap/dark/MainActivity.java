@@ -3,6 +3,7 @@ package il.david.govmap.dark;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -159,7 +160,20 @@ public class MainActivity extends Activity {
             @Override public void onGeolocationPermissionsHidePrompt() { cancelPendingLocation(); }
         });
         web.setDownloadListener((url, agent, disposition, mime, size) -> Toast.makeText(this, "הורדות חסומות בגרסה זו", Toast.LENGTH_SHORT).show());
-        web.loadUrl(HOME);
+        String link = incomingMapLink(getIntent());
+        web.loadUrl(link == null ? HOME : link);
+    }
+    private static String incomingMapLink(Intent intent) {
+        return intent != null && Intent.ACTION_VIEW.equals(intent.getAction())
+            ? GovMapLinks.trustedUrl(intent.getDataString()) : null;
+    }
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        String link = incomingMapLink(intent);
+        if (link == null) return;
+        setIntent(intent);
+        if (web == null) recreate();
+        else web.loadUrl(link);
     }
     private boolean hasLocationPermission() {
         return checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
